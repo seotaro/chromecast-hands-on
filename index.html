@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title></title>
+  <style>
+    .launcher {
+      display: block;
+      width: 100px;
+      height: 100px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Google Cast test</h1>
+
+  <ul>
+    <li>Use the Chrome browser.</li>
+    <li>Check the console logs on dev mode.</li>
+  </ul>
+
+  <div>
+    <p> 1. Connect to the Chromecast device </p>
+    <google-cast-launcher class="launcher"></google-cast-launcher>
+  </div>
+  <script></script>
+  <div>
+    <p>2. Click the button to play media</p>
+    <ul>
+      <li><button id="playAudio" disabled>Play audio</button></li>
+      <li><button id="playImage" disabled>Play image</button></li>
+      <li><button id="playVideo" disabled>Play video</button></li>
+      <li><button id="playInvalidAudio" disabled>Play invalid audio</button></li>
+      <li><button id="playInvalidImage" disabled>Play invalid image</button></li>
+      <li><button id="playInvalidVideo" disabled>Play invalid video</button></li>
+      <li><button id="playYouTube" disabled>Play YouTube</button></li>
+    </ul>
+  </div>
+
+  <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1" defer></script>
+  <script>
+    const MEDIA_ROOT = 'https://seotaro.github.io/chromecast-hands-on/media/';
+
+    const MEDIA = [
+      { id: 'playAudio', contentId: `${MEDIA_ROOT}maou_short_14_shining_star.m4a`, contentType: 'audio/x-m4a' },
+      { id: 'playImage', contentId: `${MEDIA_ROOT}drone.jpg`, contentType: 'image/jpeg' },
+      { id: 'playVideo', contentId: `${MEDIA_ROOT}drone.mp4`, contentType: 'video/mp4' },
+      { id: 'playInvalidAudio', contentId: `${MEDIA_ROOT}not-exist.m4a`, contentType: 'audio/x-m4a' },
+      { id: 'playInvalidImage', contentId: `${MEDIA_ROOT}not-exist.jpg`, contentType: 'image/jpeg' },
+      { id: 'playInvalidVideo', contentId: `${MEDIA_ROOT}not-exist.mp4`, contentType: 'video/mp4' },
+      // { id: 'playYouTube', contentId: `https://www.youtube.com/watch?v=2R-blm5aLus`, contentType: 'video/mp4' },
+    ];
+
+    let remotePlayer = null;
+    let remotePlayerController = null;
+
+    window['__onGCastApiAvailable'] = (isAvailable) => {
+      console.log('__onGCastApiAvailable', isAvailable);
+      if (isAvailable) {
+        initialize();
+      }
+    };
+
+    const initialize = () => {
+      console.log('initialize');
+
+      cast.framework.CastContext.getInstance().setOptions({
+        receiverApplicationId: chrome.cast.media.DEFAULT_MEDIA_RECEIVER_APP_ID,
+        autoJoinPolicy: chrome.cast.AutoJoinPolicy.ORIGIN_SCOPED,
+      });
+
+      launch();
+    }
+
+    const launch = () => {
+      console.log('launch');
+
+      remotePlayer = new cast.framework.RemotePlayer();
+
+      remotePlayerController = new cast.framework.RemotePlayerController(remotePlayer);
+      remotePlayerController.addEventListener(
+        cast.framework.RemotePlayerEventType.IS_CONNECTED_CHANGED,
+        () => {
+          console.log('remotePlayer IS_CONNECTED_CHANGED', remotePlayer.isConnected);
+
+          MEDIA.forEach((x) => {
+            document.getElementById(x.id).disabled = !remotePlayer.isConnected;
+          });
+        }
+      );
+    }
+
+    const load = ({ contentId, contentType }) => {
+      if (!remotePlayer.isConnected) {
+        console.log('remotePlayer is not connected');
+        return;
+      }
+
+      let castSession = cast.framework.CastContext.getInstance().getCurrentSession();
+      let mediaInfo = new chrome.cast.media.MediaInfo(contentId, contentType);
+      mediaInfo.metadata = new chrome.cast.media.GenericMediaMetadata();
+      mediaInfo.metadata.metadataType = chrome.cast.media.MetadataType.GENERIC;
+
+      let request = new chrome.cast.media.LoadRequest(mediaInfo);
+      castSession.loadMedia(request)
+        .then(() => { console.log(`loaded contentId:"${contentId}"", contentType:"${contentType}"`); })
+        .catch((e) => { console.error(`load error contentId:"${contentId}"", contentType:"${contentType}"`, e); });
+    }
+
+    MEDIA.forEach((x) => {
+      document.getElementById(x.id).addEventListener('click',
+        () => { load({ contentId: x.contentId, contentType: x.contentType }); }
+      );
+    });
+  </script>
+
+</body>
+
+</html>
